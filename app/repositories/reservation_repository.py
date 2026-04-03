@@ -30,19 +30,33 @@ class ReservationRepository:
         room_id: Optional[int] = None,
         user_id: Optional[int] = None,
         status: Optional[str] = None,
+        is_admin: bool = False,
+        current_user_id: Optional[int] = None,
     ) -> List[Alocacao]:
         """
         Retorna alocações cujo período se sobrepõe ao intervalo informado.
         Suporta filtro opcional por sala, usuário e status.
+        Aplica regras de visibilidade para não-admins.
         """
         filters = []
 
         if room_id:
             filters.append(Alocacao.fk_sala == room_id)
+        
+        # Filtro de usuário específico solicitado via Query
         if user_id:
             filters.append(Alocacao.fk_usuario == user_id)
-        if status:
-            # Aceita múltiplos status separados por vírgula: "APPROVED,PENDING"
+
+        # Regra de Visibilidade:
+        # Se não for admin, ele vê: (Tudo que é APPROVED) OU (O que for DELE independente de status)
+        if not is_admin and current_user_id:
+            visibility_filter = or_(
+                Alocacao.status == "APPROVED",
+                Alocacao.fk_usuario == current_user_id
+            )
+            filters.append(visibility_filter)
+        elif status:
+            # Se for admin (ou sem user context), aplica o filtro de status normalmente se fornecido
             statuses = [s.strip().upper() for s in status.split(",")]
             filters.append(Alocacao.status.in_(statuses))
 

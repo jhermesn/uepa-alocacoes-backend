@@ -4,6 +4,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
 from app.config import get_settings
 from app.services.datetime_utils import ensure_utc
@@ -135,8 +136,18 @@ def delete_event(
 	if not creds:
 		return False
 	service = build("calendar", "v3", credentials=creds, cache_discovery=False)
-	service.events().delete(calendarId=calendar_id or settings.GOOGLE_CALENDAR_ID, eventId=event_id).execute()
-	return True
+	try:
+		service.events().delete(calendarId=calendar_id or settings.GOOGLE_CALENDAR_ID, eventId=event_id).execute()
+		return True
+	except HttpError as e:
+		if e.resp.status == 404:
+			print(f"Evento {event_id} já não existia no Google Calendar.")
+			return True
+		print(f"Erro ao excluir evento no Google: {e}")
+		return False
+	except Exception as e:
+		print(f"Erro inesperado ao excluir no Google: {e}")
+		return False
 
 def get_event_by_id(db: Session, user_id: int, event_id: str):
     """
@@ -154,6 +165,12 @@ def get_event_by_id(db: Session, user_id: int, event_id: str):
         ).execute()
         
         return event
+    except HttpError as e:
+        if e.resp.status == 404:
+            print(f"Evento {event_id} não encontrado no Google.")
+        else:
+            print(f"Erro de API ao buscar evento no Google: {e}")
+        return None
     except Exception as e:
-        print(f"Erro ao buscar evento no Google: {e}")
+        print(f"Erro inesperado ao buscar evento no Google: {e}")
         return None

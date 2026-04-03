@@ -124,12 +124,16 @@ def list_reservations(
         try:
             range_start = from_storage_datetime(date_from_local)
             range_end = from_storage_datetime(date_to_local)
+            from app.services.rbac import ROLE_ADMIN
+            is_admin = (current_user.tipo_usuario >= ROLE_ADMIN)
             local_all = repo.list_in_range(
                 date_from_local=date_from_local,
                 date_to_local=date_to_local,
                 room_id=room_id,
                 user_id=user_id,
                 status=status_filter,
+                is_admin=is_admin,
+                current_user_id=current_user.id,
             )
             for res in local_all:
                 if str(res.id) not in google_local_ids:
@@ -140,14 +144,17 @@ def list_reservations(
         result.sort(key=lambda ev: ev["start"]["dateTime"])
         return {"items": result}
 
-    # Caminho sem Google Calendar
     try:
+        from app.services.rbac import ROLE_ADMIN
+        is_admin = (current_user.tipo_usuario >= ROLE_ADMIN)
         reservas_db = repo.list_in_range(
             date_from_local=date_from_local,
             date_to_local=date_to_local,
             room_id=room_id,
             user_id=user_id,
             status=status_filter,
+            is_admin=is_admin,
+            current_user_id=current_user.id,
         )
     except Exception as e:
         print(f"Erro ao ler banco local: {e}")
@@ -378,6 +385,42 @@ def update_reservation(db: Session, reservation_id: str, payload: ReservationUpd
 
 def delete_reservation(db: Session, reservation_id: str, delete_series: bool, current_user) -> None:
     """Exclui uma reserva do Google Calendar e do banco local."""
+    repo = ReservationRepository(db)
+    
+    base_id_str = reservation_id.split(":")[0]
+    if base_id_str.isdigit():
+        lid = int(base_id_str)
+        alocacao_local = repo.get_by_id(lid)
+        if alocacao_local:
+            print(f"Excluindo reserva local: {lid}")
+
+            if alocacao_local.status == "APPROVED":
+                try:
+                    start_dt = ensure_utc(from_storage_datetime(alocacao_local.dia_horario_inicio))
+                    end_dt = ensure_utc(from_storage_datetime(alocacao_local.dia_horario_saida))   
+
+                    g_events = list_events(db=db, user_id=current_user.id, time_min_utc=start_dt, time_max_utc=end_dt)
+                    if g_events:
+                        for ge in g_events:
+                            priv = (ge.get("extendedProperties") or {}).get("private") or {}
+                            if str(priv.get("local_reservation_id")) == str(lid):
+                                ge_id = ge.get("id")
+                                if ge_id:
+                                    target_ge_id = ge_id
+                                    if delete_series and ge.get("recurringEventId"):
+                                        target_ge_id = ge.get("recurringEventId")
+                                    print(f"Deletando evento correspondente no Google: {target_ge_id}")
+                                    delete_event(db=db, user_id=current_user.id, event_id=target_ge_id)
+                                break
+                except Exception as e:
+                    print(f"Erro ao tentar encontrar/deletar evento associado no Google: {e}")
+
+            repo.delete(alocacao_local)
+            return
+        else:
+            print(f"ID numérico {lid} não encontrado no banco local.")
+            return
+    
     google_event = get_event_by_id(db=db, user_id=current_user.id, event_id=reservation_id)
     target_id = reservation_id
 
@@ -387,24 +430,27 @@ def delete_reservation(db: Session, reservation_id: str, delete_series: bool, cu
             print(f"Redirecionando exclusão para a série (pai): {target_id}")
 
     id_to_delete = target_id if delete_series else reservation_id
+    
     ok = delete_event(db=db, user_id=current_user.id, event_id=id_to_delete)
     if not ok:
         raise HTTPException(status_code=400, detail="Erro ao excluir evento no Google ou credenciais inválidas.")
 
-    # Sincronização local best-effort
     try:
         if google_event:
             priv = (google_event.get("extendedProperties") or {}).get("private") or {}
             fk_sala = priv.get("fk_sala")
+            local_id = priv.get("local_reservation_id")
             g_start = google_event["start"].get("dateTime") or google_event["start"].get("date")
-            if delete_series:
-                print("Aviso: exclusão de série no banco local pode ser incompleta sem ID de evento armazenado.")
-            if fk_sala and g_start:
+            
+            alocacao_local = None
+            if local_id and str(local_id).isdigit():
+                 alocacao_local = repo.get_by_id(int(local_id))
+            elif fk_sala and g_start:
                 dt_inicio_local = to_storage_datetime(dateutil_parser.parse(g_start))
-                repo = ReservationRepository(db)
                 alocacao_local = repo.find_by_sala_and_start(fk_sala, dt_inicio_local)
-                if alocacao_local:
-                    repo.delete(alocacao_local)
+            
+            if alocacao_local:
+                repo.delete(alocacao_local)
     except Exception as e:
         print(f"Erro na sincronização local de delete: {e}")
         db.rollback()
