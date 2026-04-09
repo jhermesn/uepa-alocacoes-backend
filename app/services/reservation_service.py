@@ -7,15 +7,16 @@ Responsabilidades:
 - Nenhum conhecimento de HTTP (FastAPI) deve residir aqui
 """
 
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime
-
+import hashlib
 from dateutil import parser as dateutil_parser
 from sqlalchemy.orm import Session
 
 from fastapi import HTTPException, status
 
 from app.models import Alocacao, Sala, Usuario
+from app.repositories.cache_repository import CacheRepository
 from app.repositories.reservation_repository import ReservationRepository
 from app.builders.reservation_builder import build_local_event, expand_local_reservation, PLATFORM_EVENT_SOURCE
 from app.services.google_calendar import list_events, create_event, update_event, delete_event, get_event_by_id
@@ -33,6 +34,9 @@ def _is_platform_event(event: dict) -> bool:
         return True
     return bool(priv.get("fk_sala") and priv.get("fk_usuario"))
 
+def _generate_cache_key(prefix: str, **kwargs) -> str:
+    query_str = f"{prefix}_" + "_".join(f"{k}:{v}" for k, v in sorted(kwargs.items()))
+    return hashlib.md5(query_str.encode()).hexdigest()
 
 def _conflicts_google(db: Session, user_id: int, sala_id: int, start_dt: datetime, end_dt: datetime) -> bool:
     """Verifica conflitos consultando o Google Calendar."""
@@ -83,6 +87,23 @@ def list_reservations(
     - Outros: usa apenas banco local com expansão de recorrências
     Suporta filtro de status (ex: "APPROVED,PENDING").
     """
+    
+    # Tenta obter dados no cache
+    cache_repo = CacheRepository(db)
+    cache_key = _generate_cache_key(
+        "list_res",
+        room_id=room_id,
+        user_id=user_id,
+        df=date_from.isoformat(), 
+        dt=date_to.isoformat(),
+        status=status_filter,
+        uid=current_user.id
+    )
+    cached = cache_repo.get(cache_key)
+    if cached:
+        return cached
+
+    # Busca no cache falha:
     repo = ReservationRepository(db)
     date_from_utc = ensure_utc(date_from)
     date_to_utc = ensure_utc(date_to)
@@ -167,7 +188,11 @@ def list_reservations(
         formatted_items.extend(expand_local_reservation(res, range_start, range_end))
 
     formatted_items.sort(key=lambda ev: ev["start"]["dateTime"])
-    return {"items": formatted_items}
+
+    final_output = {"items": formatted_items}
+    cache_repo.set(cache_key, final_output, ttl_seconds=600)
+
+    return final_output
 
 
 # ──────────────────────────────────────────────
@@ -176,6 +201,9 @@ def list_reservations(
 
 def create_reservation(db: Session, payload: ReservationCreate, current_user) -> dict:
     """Cria uma nova reserva. Admin cria como APPROVED (e sincroniza Google); usuário cria como PENDING."""
+    # Invalida cache
+    CacheRepository(db).invalidate_pattern("list_res")
+
     if payload.dia_horario_saida <= payload.dia_horario_inicio:
         raise HTTPException(status_code=400, detail="A data de saída deve ser posterior à data de início.")
 
@@ -249,6 +277,10 @@ def create_reservation(db: Session, payload: ReservationCreate, current_user) ->
 
 def approve_reservation(db: Session, reservation_id: int, current_user) -> dict:
     """Aprova uma reserva PENDING: cria no Google Calendar e atualiza status local."""
+
+    # Invalida cache
+    CacheRepository(db).invalidate_pattern("list_res")
+
     repo = ReservationRepository(db)
     alocacao = repo.get_by_id(reservation_id)
     if not alocacao:
@@ -296,6 +328,10 @@ def approve_reservation(db: Session, reservation_id: int, current_user) -> dict:
 
 def reject_reservation(db: Session, reservation_id: int) -> dict:
     """Rejeita uma reserva: atualiza status local para REJECTED."""
+
+    # Invalida cache
+    CacheRepository(db).invalidate_pattern("list_res")
+
     repo = ReservationRepository(db)
     alocacao = repo.get_by_id(reservation_id)
     if not alocacao:
@@ -312,6 +348,10 @@ def reject_reservation(db: Session, reservation_id: int) -> dict:
 
 def update_reservation(db: Session, reservation_id: str, payload: ReservationUpdate, current_user) -> dict:
     """Atualiza uma reserva: sincroniza Google Calendar e banco local."""
+
+    # Invalida cache
+    CacheRepository(db).invalidate_pattern("list_res")
+
     old_google_event = get_event_by_id(db=db, user_id=current_user.id, event_id=reservation_id)
     alocacao_local = None
 
@@ -385,6 +425,10 @@ def update_reservation(db: Session, reservation_id: str, payload: ReservationUpd
 
 def delete_reservation(db: Session, reservation_id: str, delete_series: bool, current_user) -> None:
     """Exclui uma reserva do Google Calendar e do banco local."""
+
+    # Invalida cache
+    CacheRepository(db).invalidate_pattern("list_res")
+
     repo = ReservationRepository(db)
     
     base_id_str = reservation_id.split(":")[0]
