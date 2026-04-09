@@ -39,8 +39,9 @@ class CacheRepository:
         self.db.execute(stmt)
         self.db.commit()
 
-    def invalidate(self, key: str):
-        self.db.query(CacheEntry).filter(CacheEntry.key == key).delete()
+    def invalidate_pattern(self, pattern: str):
+        """Deletes all keys starting with the specified pattern."""
+        self.db.query(CacheEntry).filter(CacheEntry.key.like(f"{pattern}%")).delete(synchronize_session=False)
         self.db.commit()
 
     def clear_expired(self):

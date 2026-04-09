@@ -35,8 +35,9 @@ def _is_platform_event(event: dict) -> bool:
     return bool(priv.get("fk_sala") and priv.get("fk_usuario"))
 
 def _generate_cache_key(prefix: str, **kwargs) -> str:
-    query_str = f"{prefix}_" + "_".join(f"{k}:{v}" for k, v in sorted(kwargs.items()))
-    return hashlib.md5(query_str.encode()).hexdigest()
+    query_str = "_".join(f"{k}:{v}" for k, v in sorted(kwargs.items()))
+    hash_signature = hashlib.md5(query_str.encode()).hexdigest()
+    return f"{prefix}_{hash_signature}"
 
 def _conflicts_google(db: Session, user_id: int, sala_id: int, start_dt: datetime, end_dt: datetime) -> bool:
     """Verifica conflitos consultando o Google Calendar."""
