@@ -35,7 +35,7 @@ def upgrade() -> None:
         ('Admin Padrão', 'admin@admin.com', '{admin_hash}', 3),
         ('Professor Teste', 'prof@uepa.br', '{user_hash}', 2),
         ('Aluno Teste', 'aluno@uepa.br', '{user_hash}', 1)
-        ON DUPLICATE KEY UPDATE nome=VALUES(nome);
+        ON CONFLICT (email) DO UPDATE SET nome = EXCLUDED.nome;
         """
     ) 
 
@@ -43,7 +43,7 @@ def upgrade() -> None:
     room_types = ['Laboratório', 'Auditório', 'Aula', 'Sala de Estudos']
     for rt in room_types:
         op.execute(f"""
-            INSERT INTO tipos_sala (nome) VALUES ('{rt}') ON DUPLICATE KEY UPDATE nome=VALUES(nome);
+            INSERT INTO tipos_sala (nome) VALUES ('{rt}') ON CONFLICT (id) DO NOTHING;
         """)
 
     # Rooms
@@ -51,38 +51,38 @@ def upgrade() -> None:
     op.execute("""
         INSERT INTO salas (codigo_sala, fk_tipo_sala, descricao_sala, limite_usuarios)
         SELECT 101, id, 'Laboratório de Informática 1', 30 FROM tipos_sala WHERE nome='Laboratório'
-        ON DUPLICATE KEY UPDATE descricao_sala='Laboratório de Informática 1';
+        ON CONFLICT (codigo_sala) DO UPDATE SET descricao_sala = EXCLUDED.descricao_sala;
     """)
     op.execute("""
         INSERT INTO salas (codigo_sala, fk_tipo_sala, descricao_sala, limite_usuarios)
         SELECT 102, id, 'Laboratório de Física', 25 FROM tipos_sala WHERE nome='Laboratório'
-        ON DUPLICATE KEY UPDATE descricao_sala='Laboratório de Física';
+        ON CONFLICT (codigo_sala) DO UPDATE SET descricao_sala = EXCLUDED.descricao_sala;
     """)
 
     # Aulas
     op.execute("""
         INSERT INTO salas (codigo_sala, fk_tipo_sala, descricao_sala, limite_usuarios)
         SELECT 201, id, 'Sala de Aula 201 - Bloco B', 40 FROM tipos_sala WHERE nome='Aula'
-        ON DUPLICATE KEY UPDATE descricao_sala='Sala de Aula 201 - Bloco B';
+        ON CONFLICT (codigo_sala) DO UPDATE SET descricao_sala = EXCLUDED.descricao_sala;
     """)
     op.execute("""
         INSERT INTO salas (codigo_sala, fk_tipo_sala, descricao_sala, limite_usuarios)
         SELECT 202, id, 'Sala de Aula 202 - Bloco B', 40 FROM tipos_sala WHERE nome='Aula'
-        ON DUPLICATE KEY UPDATE descricao_sala='Sala de Aula 202 - Bloco B';
+        ON CONFLICT (codigo_sala) DO UPDATE SET descricao_sala = EXCLUDED.descricao_sala;
     """)
     
     # Auditório
     op.execute("""
         INSERT INTO salas (codigo_sala, fk_tipo_sala, descricao_sala, limite_usuarios)
         SELECT 300, id, 'Auditório Principal', 100 FROM tipos_sala WHERE nome='Auditório'
-        ON DUPLICATE KEY UPDATE descricao_sala='Auditório Principal';
+        ON CONFLICT (codigo_sala) DO UPDATE SET descricao_sala = EXCLUDED.descricao_sala;
     """)
 
     # Sala de Estudos
     op.execute("""
         INSERT INTO salas (codigo_sala, fk_tipo_sala, descricao_sala, limite_usuarios)
         SELECT 401, id, 'Sala de Estudos 1', 10 FROM tipos_sala WHERE nome='Sala de Estudos'
-        ON DUPLICATE KEY UPDATE descricao_sala='Sala de Estudos 1';
+        ON CONFLICT (codigo_sala) DO UPDATE SET descricao_sala = EXCLUDED.descricao_sala;
     """)
 
 

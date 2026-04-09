@@ -1,3 +1,3 @@
-from app.repositories.reservation_repository import ReservationRepository
+from app.repositories.allocation_repository import AllocationRepository
 
-__all__ = ["ReservationRepository"]
+__all__ = ["AllocationRepository"]
