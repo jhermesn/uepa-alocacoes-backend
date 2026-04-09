@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, TIMESTAMP, text
+from sqlalchemy import Column, Integer, String, TIMESTAMP, text, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.try_database import Base
 
@@ -17,9 +18,17 @@ class Usuario(Base):
     
     # Campos específicos
     matricula = Column(String(50), nullable=True)
-    curso = Column(String(100), nullable=True)
+    fk_curso = Column(Integer, ForeignKey("cursos.id"), nullable=True)
     siape = Column(String(50), nullable=True)
     departamento = Column(String(100), nullable=True)
+    
+    # Relacionamentos
+    curso_rel = relationship("Curso")
+
+    @property
+    def curso(self):
+        """Retorna o nome do curso para compatibilidade."""
+        return self.curso_rel.nome if self.curso_rel else None
     
     # Status: pendente, aprovado, recusado
     status = Column(String(20), server_default=text("'pendente'"))

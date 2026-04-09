@@ -31,6 +31,7 @@ class SolicitationService(BaseService[Solicitacao]):
             "horario_inicio": data.horarioInicio,
             "horario_fim": data.horarioFim,
             "fk_sala": data.salaId,
+            "fk_curso": data.cursoId,
             "status": "pendente"
         }
         return self.repository.create(db, db_data)

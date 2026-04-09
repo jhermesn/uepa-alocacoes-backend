@@ -67,7 +67,7 @@ class AuthService:
             senha=hash_password(data.senha),
             tipo_usuario=tipo,
             matricula=data.matricula,
-            curso=data.curso,
+            fk_curso=data.cursoId,
             siape=data.siape,
             departamento=data.departamento,
             status=status_val

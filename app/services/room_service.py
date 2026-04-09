@@ -18,6 +18,7 @@ class RoomService(BaseService[Sala]):
             "codigo_sala": data.nomeSala,
             "descricao_sala": data.descricao_sala,
             "limite_usuarios": data.capacidade,
+            "fk_tipo_sala": data.tipoSalaId,
             "ativada": True,
             "sala_ativada": True
         }
@@ -35,6 +36,8 @@ class RoomService(BaseService[Sala]):
             update_data["descricao_sala"] = data.descricao_sala
         if data.capacidade is not None:
             update_data["limite_usuarios"] = data.capacidade
+        if data.tipoSalaId is not None:
+            update_data["fk_tipo_sala"] = data.tipoSalaId
             
         return self.repository.update(db, db_obj, update_data)
 

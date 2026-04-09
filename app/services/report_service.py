@@ -48,6 +48,7 @@ def get_users_report_data(db: Session) -> List[UserReportOut]:
             Nome=u.nome,
             Email=u.email,
             Papel=role_map.get(u.tipo_usuario, "Usuário"),
+            Curso=u.curso,
             Status="Ativo"
         ) for u in users
     ]
@@ -79,6 +80,7 @@ def get_allocation_history_data(db: Session) -> List[HistoryReportOut]:
             Horário=periodo_str,
             Professor=a.professor.nome if a.professor else (a.usuario.nome if a.usuario else "Não informado"),
             Disciplina=a.disciplina.nome if a.disciplina else (a.uso or "Não informada"),
+            Curso=a.curso.nome if a.curso else None,
             Sala=a.sala.descricao_sala if a.sala else "Desconhecida"
         ))
         

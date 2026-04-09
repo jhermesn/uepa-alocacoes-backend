@@ -23,6 +23,7 @@ class Solicitacao(Base):
     horario_fim = Column(Time, nullable=False)
     
     fk_sala = Column(Integer, ForeignKey("salas.id"), nullable=False)
+    fk_curso = Column(Integer, ForeignKey("cursos.id"), nullable=True)
     status = Column(String(20), server_default="pendente") # pendente, aprovado, recusado
     motivo_recusa = Column(Text, nullable=True)
     
@@ -31,3 +32,8 @@ class Solicitacao(Base):
 
     # Relacionamentos
     sala = relationship("Sala")
+    curso_rel = relationship("Curso")
+
+    @property
+    def curso(self):
+        return self.curso_rel.nome if self.curso_rel else None

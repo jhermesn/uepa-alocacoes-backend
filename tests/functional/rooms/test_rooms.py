@@ -1,5 +1,6 @@
 import pytest
 from app.models.room import Sala
+from app.models.type_room import TipoSala
 
 def test_list_rooms_unauthorized(client):
     response = client.get("/rooms/")
@@ -12,7 +13,6 @@ def test_list_rooms_invalid_token(client):
 def test_create_room(client, admin_token_headers):
     payload = {
         "nomeSala": 101,
-        "tipoSala": "laboratorio",
         "descricao_sala": "Laboratório de Redes",
         "capacidade": 30
     }
@@ -25,7 +25,6 @@ def test_create_room(client, admin_token_headers):
 def test_create_room_unauthorized(client):
     payload = {
         "nomeSala": 102,
-        "tipoSala": "laboratorio",
         "descricao_sala": "Unauthorized",
         "capacidade": 20
     }
@@ -35,7 +34,6 @@ def test_create_room_unauthorized(client):
 def test_create_room_duplicate_code(client, admin_token_headers):
     payload = {
         "nomeSala": 501,
-        "tipoSala": "sala_aula",
         "descricao_sala": "Room 501",
         "capacidade": 30
     }

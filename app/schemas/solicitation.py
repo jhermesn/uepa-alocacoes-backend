@@ -17,6 +17,8 @@ class SolicitationBase(BaseModel):
     horarioInicio: time = Field(..., validation_alias=AliasChoices("horarioInicio", "horario_inicio"), serialization_alias="horarioInicio")
     horarioFim: time = Field(..., validation_alias=AliasChoices("horarioFim", "horario_fim"), serialization_alias="horarioFim")
     salaId: int = Field(..., validation_alias=AliasChoices("salaId", "fk_sala"), serialization_alias="salaId")
+    cursoId: Optional[int] = Field(None, validation_alias=AliasChoices("cursoId", "fk_curso", "curso_id"), serialization_alias="cursoId")
+    curso: Optional[str] = None
 
 class SolicitationCreate(SolicitationBase):
     pass
