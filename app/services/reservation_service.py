@@ -203,8 +203,10 @@ def list_reservations(
 def create_reservation(db: Session, payload: ReservationCreate, current_user) -> dict:
     """Cria uma nova reserva. Admin cria como APPROVED (e sincroniza Google); usuário cria como PENDING."""
     # Invalida cache
-    CacheRepository(db).invalidate_pattern("list_res")
-
+    cache_repo = CacheRepository(db)
+    cache_repo.invalidate_pattern("list_res")
+    cache_repo.invalidate_pattern("dash_metrics")
+    
     if payload.dia_horario_saida <= payload.dia_horario_inicio:
         raise HTTPException(status_code=400, detail="A data de saída deve ser posterior à data de início.")
 
@@ -280,7 +282,10 @@ def approve_reservation(db: Session, reservation_id: int, current_user) -> dict:
     """Aprova uma reserva PENDING: cria no Google Calendar e atualiza status local."""
 
     # Invalida cache
-    CacheRepository(db).invalidate_pattern("list_res")
+    cache_repo = CacheRepository(db)
+    cache_repo.invalidate_pattern("list_res")
+    cache_repo.invalidate_pattern("dash_metrics")
+
 
     repo = ReservationRepository(db)
     alocacao = repo.get_by_id(reservation_id)
@@ -331,7 +336,10 @@ def reject_reservation(db: Session, reservation_id: int) -> dict:
     """Rejeita uma reserva: atualiza status local para REJECTED."""
 
     # Invalida cache
-    CacheRepository(db).invalidate_pattern("list_res")
+    cache_repo = CacheRepository(db)
+    cache_repo.invalidate_pattern("list_res")
+    cache_repo.invalidate_pattern("dash_metrics")
+
 
     repo = ReservationRepository(db)
     alocacao = repo.get_by_id(reservation_id)
@@ -351,7 +359,10 @@ def update_reservation(db: Session, reservation_id: str, payload: ReservationUpd
     """Atualiza uma reserva: sincroniza Google Calendar e banco local."""
 
     # Invalida cache
-    CacheRepository(db).invalidate_pattern("list_res")
+    cache_repo = CacheRepository(db)
+    cache_repo.invalidate_pattern("list_res")
+    cache_repo.invalidate_pattern("dash_metrics")
+
 
     old_google_event = get_event_by_id(db=db, user_id=current_user.id, event_id=reservation_id)
     alocacao_local = None
@@ -428,7 +439,10 @@ def delete_reservation(db: Session, reservation_id: str, delete_series: bool, cu
     """Exclui uma reserva do Google Calendar e do banco local."""
 
     # Invalida cache
-    CacheRepository(db).invalidate_pattern("list_res")
+    cache_repo = CacheRepository(db)
+    cache_repo.invalidate_pattern("list_res")
+    cache_repo.invalidate_pattern("dash_metrics")
+
 
     repo = ReservationRepository(db)
     
