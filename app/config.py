@@ -22,18 +22,14 @@ class Settings(BaseSettings):
     GOOGLE_CALENDAR_ID: str = "primary"
     GOOGLE_TOKEN_URI: str = "https://oauth2.googleapis.com/token"
 
-    # Cache TTL Settings
+    # Cache TTL Settings (Ensure these are indented exactly 4 spaces)
     CACHE_TTL_STRICT: int = 300
     CACHE_TTL_DASHBOARD: int = 600
     CACHE_TTL_USER: int = 3600
     CACHE_TTL_CATALOG: int = 86400
 
-    # Lista de tipos de sala configuráveis
     ROOM_TYPES: list[str] = ["laboratorio", "auditorio"]
-
 
 @lru_cache
 def get_settings() -> Settings:
-	return Settings()
-
-
+    return Settings()

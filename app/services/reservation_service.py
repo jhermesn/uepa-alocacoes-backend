@@ -206,6 +206,7 @@ def create_reservation(db: Session, payload: ReservationCreate, current_user) ->
     cache_repo = CacheRepository(db)
     cache_repo.invalidate_pattern("list_res")
     cache_repo.invalidate_pattern("dash_metrics")
+    cache_repo.invalidate_pattern("google_sync")
     
     if payload.dia_horario_saida <= payload.dia_horario_inicio:
         raise HTTPException(status_code=400, detail="A data de saída deve ser posterior à data de início.")
@@ -285,6 +286,7 @@ def approve_reservation(db: Session, reservation_id: int, current_user) -> dict:
     cache_repo = CacheRepository(db)
     cache_repo.invalidate_pattern("list_res")
     cache_repo.invalidate_pattern("dash_metrics")
+    cache_repo.invalidate_pattern("google_sync")
 
 
     repo = ReservationRepository(db)
@@ -339,6 +341,7 @@ def reject_reservation(db: Session, reservation_id: int) -> dict:
     cache_repo = CacheRepository(db)
     cache_repo.invalidate_pattern("list_res")
     cache_repo.invalidate_pattern("dash_metrics")
+    cache_repo.invalidate_pattern("google_sync")
 
 
     repo = ReservationRepository(db)
@@ -362,6 +365,7 @@ def update_reservation(db: Session, reservation_id: str, payload: ReservationUpd
     cache_repo = CacheRepository(db)
     cache_repo.invalidate_pattern("list_res")
     cache_repo.invalidate_pattern("dash_metrics")
+    cache_repo.invalidate_pattern("google_sync")
 
 
     old_google_event = get_event_by_id(db=db, user_id=current_user.id, event_id=reservation_id)
@@ -442,6 +446,7 @@ def delete_reservation(db: Session, reservation_id: str, delete_series: bool, cu
     cache_repo = CacheRepository(db)
     cache_repo.invalidate_pattern("list_res")
     cache_repo.invalidate_pattern("dash_metrics")
+    cache_repo.invalidate_pattern("google_sync")
 
 
     repo = ReservationRepository(db)

@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timezone
 
+from app.config import get_settings 
+from app.repositories.cache_repository import CacheRepository
+
 from app.try_database import get_db
 from app.models import Usuario
 from app.services.rbac import get_current_user, require_role, ROLE_ADMIN, ROLE_USER
@@ -15,8 +18,24 @@ from app.schemas.user import UserCreate, UserUpdate, UserOut
 router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("/me", response_model=UserOut)
-def get_me(current_user: Usuario = Depends(get_current_user)):
-    return current_user
+def get_me(
+    db: Session = Depends(get_db),
+    current_user: Usuario = Depends(get_current_user),
+    settings=Depends(get_settings)
+):
+    # cache logic
+    cache_repo = CacheRepository(db)
+    cache_key = cache_repo.generate_key("user_me", user_id=current_user.id)
+    cached_user = cache_repo.get(cache_key)
+    if cached_user:
+        return cached_user
+
+    # cache miss
+    user_data = UserOut.model_validate(current_user).model_dump(mode="json")
+
+    cache_repo.set(cache_key, user_data, ttl=settings.CACHE_TTL_USER)
+
+    return user_data
 
 @router.post("/", response_model=UserOut, status_code=status.HTTP_201_CREATED)
 def create_user(
@@ -124,7 +143,12 @@ def update_user(
     user.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user)
-    
+
+
+    cache_repo = CacheRepository(db)
+    user_cache_key = cache_repo.generate_key("user_me", user_id=user_id)
+    cache_repo.invalidate_pattern(user_cache_key)
+
     return user
 
 
@@ -147,5 +171,8 @@ def delete_user(
         
     user.deleted_at = datetime.now(timezone.utc)
     db.commit()
-    
+
+    cache_repo = CacheRepository(db)
+    cache_repo.invalidate_pattern(cache_repo.generate_key("user_me", user_id=user_id))
+
     return None
