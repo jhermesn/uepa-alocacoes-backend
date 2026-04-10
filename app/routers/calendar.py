@@ -91,10 +91,9 @@ def google_list_events(
     # cache logic
     cache_repo = CacheRepository(db)
     cache_key = cache_repo.generate_key(
-        "google_sync", 
-        user_id=_u.id, 
-        start=start.isoformat(), 
-        end=end.isoformat(), 
+        f"google_sync_{_u.id}",
+        start=start.isoformat(),
+        end=end.isoformat(),
         cal=calendar_id or "primary"
     )
     if not force_refresh:
@@ -115,7 +114,7 @@ def google_list_events(
 
 @router.post("/google/events", status_code=status.HTTP_201_CREATED)
 def google_create_event(payload: GoogleEventCreate, db: Session = Depends(get_db), _u=Depends(require_role(1))):
-    CacheRepository(db).invalidate_pattern(f"google_sync_user_id:{_u.id}")
+    CacheRepository(db).invalidate_pattern(f"google_sync_{_u.id}")
     evt = create_event(
         db=db,
         user_id=_u.id,
@@ -133,7 +132,7 @@ def google_create_event(payload: GoogleEventCreate, db: Session = Depends(get_db
 
 @router.patch("/google/events/{event_id}")
 def google_update_event(event_id: str, payload: GoogleEventUpdate, db: Session = Depends(get_db), _u=Depends(require_role(1))):
-    CacheRepository(db).invalidate_pattern(f"google_sync_user_id:{_u.id}")
+    CacheRepository(db).invalidate_pattern(f"google_sync_{_u.id}")
     patch = {}
     if payload.summary is not None:
         patch["summary"] = payload.summary
@@ -154,7 +153,7 @@ def google_update_event(event_id: str, payload: GoogleEventUpdate, db: Session =
 
 @router.delete("/google/events/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
 def google_delete_event(event_id: str, db: Session = Depends(get_db), _u=Depends(require_role(1)), calendar_id: Optional[str] = Query(None)):
-    CacheRepository(db).invalidate_pattern(f"google_sync_user_id:{_u.id}")
+    CacheRepository(db).invalidate_pattern(f"google_sync_{_u.id}")
     ok = delete_event(db=db, user_id=_u.id, event_id=event_id, calendar_id=calendar_id)
     if not ok:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Google credentials not connected or delete failed")

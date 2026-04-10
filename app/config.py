@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     GOOGLE_CALENDAR_ID: str = "primary"
     GOOGLE_TOKEN_URI: str = "https://oauth2.googleapis.com/token"
 
-    # Cache TTL Settings (Ensure these are indented exactly 4 spaces)
+    # cache TTL Settings
     CACHE_TTL_STRICT: int = 300
     CACHE_TTL_DASHBOARD: int = 600
     CACHE_TTL_USER: int = 3600

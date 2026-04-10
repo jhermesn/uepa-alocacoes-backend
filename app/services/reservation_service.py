@@ -90,6 +90,8 @@ def list_reservations(
     """
     
     # Tenta obter dados no cache
+    if date_from is None or date_to is None:
+        raise HTTPException(status_code=400, detail="date_from and date_to are required.")
     cache_repo = CacheRepository(db)
     cache_key = _generate_cache_key(
         "list_res",
@@ -97,7 +99,7 @@ def list_reservations(
         user_id=user_id,
         df=date_from.isoformat(), 
         dt=date_to.isoformat(),
-        status=status_filter,
+        status=status_filter ,
         uid=current_user.id
     )
     cached = cache_repo.get(cache_key)
@@ -191,7 +193,7 @@ def list_reservations(
     formatted_items.sort(key=lambda ev: ev["start"]["dateTime"])
 
     final_output = {"items": formatted_items}
-    cache_repo.set(cache_key, final_output, ttl_seconds=600)
+    cache_repo.set(cache_key, final_output, ttl=600)
 
     return final_output
 
