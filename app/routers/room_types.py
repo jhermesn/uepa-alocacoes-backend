@@ -2,6 +2,8 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import exc
+from app.repositories.cache_repository import CacheRepository
+from app.config import get_settings
 
 from app.try_database import get_db
 from app.models import TipoSala, Sala 
@@ -32,6 +34,9 @@ def create_room_type(
     
     db.add(tipo_sala)
     db.commit()
+    cache_repo = CacheRepository(db)
+    cache_repo.invalidate_pattern("catalog_types")
+    cache_repo.invalidate_pattern("catalog_rooms")
     db.refresh(tipo_sala)
     return tipo_sala
 
@@ -39,14 +44,25 @@ def create_room_type(
 @router.get("/", response_model=List[TipoSalaOut])
 def list_room_types(
     db: Session = Depends(get_db), 
-    _user=Depends(require_role(ROLE_USER))
+    _user=Depends(require_role(ROLE_USER)),
+    settings=Depends(get_settings)
 ):
     """
     Lista todos os tipos de sala disponíveis.
     Requer qualquer usuário autenticado.
     """
+    # cache logic
+    cache_repo = CacheRepository(db)
+    cache_key = cache_repo.generate_key("catalog_types", scope="all")
+    cached = cache_repo.get(cache_key)
+    if cached:
+        return cached
+
     tipos = db.query(TipoSala).order_by(TipoSala.nome).all()
-    return tipos
+
+    data = [TipoSalaOut.model_validate(t).model_dump() for t in tipos]
+    cache_repo.set(cache_key, data, ttl=settings.CACHE_TTL_CATALOG)
+    return data
 
 
 @router.get("/{type_id}", response_model=TipoSalaOut)
@@ -88,6 +104,9 @@ def update_room_type(
             )
         tipo.nome = payload.nome
         db.commit()
+        cache_repo = CacheRepository(db)
+        cache_repo.invalidate_pattern("catalog_types")
+        cache_repo.invalidate_pattern("catalog_rooms")
         db.refresh(tipo)
         
     return tipo
@@ -117,6 +136,9 @@ def delete_room_type(
     try:
         db.delete(tipo)
         db.commit()
+        cache_repo = CacheRepository(db)
+        cache_repo.invalidate_pattern("catalog_types")
+        cache_repo.invalidate_pattern("catalog_rooms")
     except exc.IntegrityError: 
          raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
