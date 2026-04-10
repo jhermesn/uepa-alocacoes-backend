@@ -4,7 +4,8 @@ set -e
 if [ ! -d "alembic" ]; then
     alembic init alembic
 fi
-alembic upgrade head
+python3 ./scripts/create_tables.py
+alembic stamp head
 if [ -f "./scripts/seed.py" ]; then
     python3 ./scripts/seed.py
 fi
